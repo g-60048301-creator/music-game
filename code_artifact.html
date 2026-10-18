@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>三年级音乐：音符与音值大冒险</title>
+    <!-- Tailwind CSS for UI overlay styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1e1b4b;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #38bdf8, #818cf8, #c084fc);
+        }
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(8px);
+            border: 3px solid rgba(255, 255, 255, 0.7);
+            border-radius: 9999px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            active: scale-95;
+        }
+        .touch-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.6);
+        }
+        .modal-animate {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .rainbow-text {
+            background-image: linear-gradient(to left, violet, indigo, blue, green, yellow, orange, red);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center relative">
+
+    <!-- Main Canvas Game Area -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Top HUD Overlay -->
+    <div id="hud" class="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none z-10">
+        <div class="flex gap-2 sm:gap-4 items-center">
+            <!-- Score & Coins -->
+            <div class="bg-yellow-400/90 text-amber-950 px-3 py-1.5 rounded-2xl font-bold border-2 border-yellow-200 shadow-md flex items-center gap-1.5 text-sm sm:text-base">
+                <span>🪙 金币:</span>
+                <span id="coinCount" class="text-xl">0</span>
+            </div>
+            <!-- Questions Progress -->
+            <div class="bg-indigo-600/90 text-white px-3 py-1.5 rounded-2xl font-bold border-2 border-indigo-300 shadow-md flex items-center gap-1.5 text-sm sm:text-base">
+                <span>🎼 关卡题目:</span>
+                <span id="questionCount" class="text-xl text-yellow-300">0/10</span>
+            </div>
+        </div>
+
+        <div class="flex gap-2 items-center pointer-events-auto">
+            <!-- Timer -->
+            <div class="bg-purple-900/80 text-purple-200 px-3 py-1.5 rounded-2xl font-bold border border-purple-400 text-sm sm:text-base flex items-center gap-1">
+                <span>⏱️</span>
+                <span id="timerDisplay">00:00</span>
+            </div>
+            <!-- Mute Toggle Button -->
+            <button id="muteBtn" class="bg-white/80 hover:bg-white text-indigo-900 p-2 rounded-2xl font-bold border-2 border-white shadow-md transition text-lg">
+                🔊
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Screen Overlay -->
+    <div id="startModal" class="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center p-4 z-50">
+        <div class="bg-gradient-to-b from-indigo-500 to-purple-700 text-white p-6 sm:p-8 rounded-3xl max-w-md w-full border-4 border-yellow-300 shadow-2xl text-center modal-animate relative overflow-hidden">
+            <div class="text-5xl sm:text-6xl mb-3">🎵 🏃‍♂️ 𝄟</div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold mb-2 text-yellow-300 drop-shadow-md">音符与音值大冒险</h1>
+            <p class="text-indigo-100 text-sm sm:text-base mb-6">三年级音乐单元：认识全音符、二分音符与四分音符！通关并回答全部10道音符问题吧！</p>
+            
+            <div class="bg-white/10 rounded-2xl p-4 text-left text-xs sm:text-sm mb-6 space-y-2 border border-white/20">
+                <div class="flex items-center gap-2">🕹️ <b>键盘控制：</b> A/D 或 ⬅️/➡️ 移动，Space/⬆️ 跳跃</div>
+                <div class="flex items-center gap-2">📱 <b>触屏控制：</b> 使用屏幕底部的左/右/跳跃按钮</div>
+                <div class="flex items-center gap-2">❓ <b>关卡任务：</b> 触发宝箱/门回答10道音乐小挑战</div>
+            </div>
+
+            <button id="startBtn" class="w-full bg-yellow-400 hover:bg-yellow-300 text-amber-950 font-extrabold text-xl py-3.5 px-6 rounded-2xl shadow-lg border-b-4 border-amber-600 active:translate-y-1 transition">
+                开始冒险！🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Music Quiz Question Modal -->
+    <div id="quizModal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border-4 border-indigo-400 shadow-2xl modal-animate text-slate-800">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <span id="quizCategory" class="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">三年级音乐小考验</span>
+                <span id="quizIndex" class="text-sm font-bold text-slate-500">问题 1 / 10</span>
+            </div>
+
+            <!-- Question Text -->
+            <h2 id="quizQuestion" class="text-xl sm:text-2xl font-bold text-indigo-950 mb-4 text-center">
+                全音符等于多少拍？
+            </h2>
+
+            <!-- Graphic / Canvas for SVG Musical Note illustration -->
+            <div id="quizGraphic" class="bg-indigo-50/80 rounded-2xl p-4 mb-6 flex justify-center items-center h-28 border border-indigo-100 shadow-inner">
+                <!-- Dynamically populated with SVG notes or visual graphics -->
+            </div>
+
+            <!-- Options Grid -->
+            <div id="quizOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <!-- Option Buttons Injected Here -->
+            </div>
+
+            <!-- Feedback Message -->
+            <div id="quizFeedback" class="hidden text-center font-bold text-base sm:text-lg p-3 rounded-xl"></div>
+        </div>
+    </div>
+
+    <!-- Victory / Finish Game Modal -->
+    <div id="victoryModal" class="hidden absolute inset-0 bg-indigo-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 text-slate-900 p-6 sm:p-8 rounded-3xl max-w-md w-full border-4 border-white shadow-2xl text-center modal-animate relative">
+            <div class="text-6xl mb-2 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-extrabold text-amber-950 mb-1">恭喜你闯关成功！</h2>
+            <p class="text-xs sm:text-sm font-semibold text-amber-900 mb-4">你掌握了全音符、二分音符与四分音符的音值！</p>
+
+            <!-- Star Rating Display -->
+            <div id="starContainer" class="text-4xl mb-4">⭐⭐⭐</div>
+
+            <!-- Score Details Card -->
+            <div class="bg-white/90 rounded-2xl p-4 mb-5 text-slate-800 shadow-inner space-y-2 text-sm sm:text-base font-bold">
+                <div class="flex justify-between">
+                    <span>🎯 答对题目:</span>
+                    <span id="finalScore" class="text-indigo-600">10 / 10</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>🪙 收集金币:</span>
+                    <span id="finalCoins" class="text-amber-600">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>⏱️ 通关时间:</span>
+                    <span id="finalTime" class="text-purple-600">00:00</span>
+                </div>
+            </div>
+
+            <!-- Student Name Input for Teacher Share -->
+            <div class="mb-5 text-left">
+                <label class="block text-xs font-bold text-amber-950 mb-1">输入你的名字与班级 (分享给老师)：</label>
+                <input type="text" id="studentNameInput" placeholder="例: 张小明 3A班" class="w-full px-4 py-2.5 rounded-xl border-2 border-amber-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-800" />
+            </div>
+
+            <!-- Share Buttons -->
+            <div class="space-y-2.5">
+                <button id="whatsappBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-4 rounded-xl shadow-md border-b-4 border-emerald-800 flex items-center justify-center gap-2 transition active:translate-y-0.5">
+                    <span>💬</span> 分享成绩给音乐老师 (WhatsApp)
+                </button>
+                <button id="restartBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3 px-4 rounded-xl shadow-md border-b-4 border-indigo-800 transition active:translate-y-0.5">
+                    🔄 再玩一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- On-Screen Touch Controls (Visible on mobile/tablets or all touch devices) -->
+    <div id="touchControls" class="absolute bottom-4 left-4 right-4 flex justify-between items-center pointer-events-none z-20">
+        <!-- D-Pad Left / Right -->
+        <div class="flex gap-3 pointer-events-auto">
+            <button id="btnLeft" class="touch-btn w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center text-3xl text-white font-extrabold select-none">
+                ⬅️
+            </button>
+            <button id="btnRight" class="touch-btn w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center text-3xl text-white font-extrabold select-none">
+                ➡️
+            </button>
+        </div>
+        <!-- Jump Button -->
+        <div class="pointer-events-auto">
+            <button id="btnJump" class="touch-btn w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center text-3xl text-white font-extrabold select-none">
+                🪂
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio Synthesizer Script -->
+    <script>
+        // Web Audio Synthesizer for SFX and Music
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+
+            playJump() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e) {}
+            }
+
+            playCoin() {
+                this.playTone(987.77, 'sine', 0.08, 0.12); // B5
+                setTimeout(() => this.playTone(1318.51, 'sine', 0.15, 0.12), 80); // E6
+            }
+
+            playCorrect() {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C
+                notes.forEach((n, i) => {
+                    setTimeout(() => this.playTone(n, 'triangle', 0.15, 0.15), i * 90);
+                });
+            }
+
+            playWrong() {
+                this.playTone(200, 'sawtooth', 0.2, 0.15);
+                setTimeout(() => this.playTone(150, 'sawtooth', 0.3, 0.15), 180);
+            }
+
+            playVictory() {
+                const tune = [523.25, 523.25, 523.25, 659.25, 783.99, 1046.50];
+                tune.forEach((n, i) => {
+                    setTimeout(() => this.playTone(n, 'sine', 0.25, 0.2), i * 150);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+    </script>
+
+    <!-- Main Game Engine & Logic -->
+    <script>
+        // --- Questions Database (10 Grade 3 Music Questions with SVG/Visual definitions) ---
+        const QUESTIONS = [
+            {
+                id: 1,
+                question: "这个音符叫什么名字？",
+                noteType: "whole",
+                options: ["全音符 (Whole Note)", "二分音符 (Half Note)", "四分音符 (Quarter Note)", "八分音符 (Eighth Note)"],
+                correct: 0,
+                hint: "空心的圆圈，没有符干哦！"
+            },
+            {
+                id: 2,
+                question: "全音符 (Whole Note) 一共占多少拍？",
+                noteType: "whole",
+                options: ["1 拍", "2 拍", "3 拍", "4 拍"],
+                correct: 3,
+                hint: "全音符是最长的基础音符！"
+            },
+            {
+                id: 3,
+                question: "这个带有符干的空心音符是什么音符？",
+                noteType: "half",
+                options: ["四分音符", "二分音符 (Half Note)", "全音符", "十六分音符"],
+                correct: 1,
+                hint: "有一条符干，头部是空心的。"
+            },
+            {
+                id: 4,
+                question: "二分音符 (Half Note) 等于几拍？",
+                noteType: "half",
+                options: ["2 拍", "4 拍", "1 拍", "半拍"],
+                correct: 0,
+                hint: "它的时值是全音符的一半。"
+            },
+            {
+                id: 5,
+                question: "实心头部加上符干的音符是哪一个？",
+                noteType: "quarter",
+                options: ["全音符", "二分音符", "四分音符 (Quarter Note)", "休止符"],
+                correct: 2,
+                hint: "头部被涂黑填满了！"
+            },
+            {
+                id: 6,
+                question: "四分音符 (Quarter Note) 算多少拍？",
+                noteType: "quarter",
+                options: ["4 拍", "2 拍", "1 拍", "3 拍"],
+                correct: 2,
+                hint: "走一步算 1 拍！"
+            },
+            {
+                id: 7,
+                question: "音值数学题：二分音符 (2拍) + 四分音符 (1拍) = ？",
+                noteType: "math_half_quarter",
+                options: ["2 拍", "3 拍", "4 拍", "5 拍"],
+                correct: 1,
+                hint: "2 + 1 = ?"
+            },
+            {
+                id: 8,
+                question: "音值算算看：两个四分音符相加等于多少拍？",
+                noteType: "math_quarter_quarter",
+                options: ["1 拍", "2 拍", "3 拍", "4 拍"],
+                correct: 1,
+                hint: "1 拍 + 1 拍 = 2 拍，相当于一个二分音符！"
+            },
+            {
+                id: 9,
+                question: "哪一个组合加起来正好等于 4 拍？",
+                noteType: "math_combo4",
+                options: ["2个四分音符", "2个二分音符", "1个二分音符+1个四分音符", "3个四分音符"],
+                correct: 1,
+                hint: "2拍 + 2拍 = 4拍！"
+            },
+            {
+                id: 10,
+                question: "最终考验：1个全音符等于几个二分音符？",
+                noteType: "compare_whole_half",
+                options: ["2 个", "3 个", "4 个", "1 个"],
+                correct: 0,
+                hint: "4 拍 ÷ 2 拍 = 2 个！"
+            }
+        ];
+
+        // --- Helper SVG Generator for Music Notes ---
+        function getNoteSVG(type) {
+            switch(type) {
+                case 'whole':
+                    return `<svg width="100" height="80" viewBox="0 0 100 80">
+                        <ellipse cx="50" cy="40" rx="22" ry="15" fill="none" stroke="#312e81" stroke-width="6" transform="rotate(-15 50 40)"/>
+                    </svg>`;
+                case 'half':
+                    return `<svg width="100" height="80" viewBox="0 0 100 80">
+                        <ellipse cx="42" cy="52" rx="16" ry="11" fill="none" stroke="#312e81" stroke-width="5" transform="rotate(-15 42 52)"/>
+                        <line x1="56" y1="50" x2="56" y2="12" stroke="#312e81" stroke-width="5" stroke-linecap="round"/>
+                    </svg>`;
+                case 'quarter':
+                    return `<svg width="100" height="80" viewBox="0 0 100 80">
+                        <ellipse cx="42" cy="52" rx="16" ry="11" fill="#312e81" transform="rotate(-15 42 52)"/>
+                        <line x1="56" y1="50" x2="56" y2="12" stroke="#312e81" stroke-width="5" stroke-linecap="round"/>
+                    </svg>`;
+                case 'math_half_quarter':
+                    return `<div class="flex items-center gap-2 text-2xl font-bold text-indigo-900">
+                        ${getNoteSVG('half')}
+                        <span>+</span>
+                        ${getNoteSVG('quarter')}
+                        <span>= ?</span>
+                    </div>`;
+                case 'math_quarter_quarter':
+                    return `<div class="flex items-center gap-2 text-2xl font-bold text-indigo-900">
+                        ${getNoteSVG('quarter')}
+                        <span>+</span>
+                        ${getNoteSVG('quarter')}
+                        <span>= ?</span>
+                    </div>`;
+                case 'math_combo4':
+                    return `<div class="text-indigo-900 font-extrabold text-lg sm:text-xl text-center">
+                        🎯 目标：组合出 <span class="text-purple-600">4 拍</span>！
+                    </div>`;
+                case 'compare_whole_half':
+                    return `<div class="flex items-center gap-3 text-2xl font-bold text-indigo-900">
+                        ${getNoteSVG('whole')}
+                        <span>=</span>
+                        <span class="text-3xl text-purple-600">? ✖️</span>
+                        ${getNoteSVG('half')}
+                    </div>`;
+                default:
+                    return `<div class="text-4xl">🎵</div>`;
+            }
+        }
+
+        // --- Canvas Setup & Game Engine Variables ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let viewWidth = window.innerWidth;
+        let viewHeight = window.innerHeight;
+
+        function resizeCanvas() {
+            viewWidth = window.innerWidth;
+            viewHeight = window.innerHeight;
+            canvas.width = viewWidth;
+            canvas.height = viewHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game State
+        let gameState = 'START'; // START, PLAYING, QUIZ, VICTORY
+        let currentQuizIndex = 0;
+        let scoreCoins = 0;
+        let correctAnswers = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+
+        // Camera Offset
+        let cameraX = 0;
+
+        // Input Tracking
+        const keys = { left: false, right: false, jump: false };
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+                if (!keys.jump && gameState === 'PLAYING') player.jump();
+                keys.jump = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') keys.jump = false;
+        });
+
+        // Touch Control Listeners
+        function setupTouchButton(id, keyProp) {
+            const btn = document.getElementById(id);
+            const startHandler = (e) => {
+                e.preventDefault();
+                sound.init();
+                if (keyProp === 'jump' && !keys.jump && gameState === 'PLAYING') {
+                    player.jump();
+                }
+                keys[keyProp] = true;
+            };
+            const endHandler = (e) => {
+                e.preventDefault();
+                keys[keyProp] = false;
+            };
+            btn.addEventListener('touchstart', startHandler);
+            btn.addEventListener('touchend', endHandler);
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+        }
+
+        setupTouchButton('btnLeft', 'left');
+        setupTouchButton('btnRight', 'right');
+        setupTouchButton('btnJump', 'jump');
+
+        // Mute Toggle Button
+        const muteBtn = document.getElementById('muteBtn');
+        muteBtn.addEventListener('click', () => {
+            sound.muted = !sound.muted;
+            muteBtn.innerText = sound.muted ? '🔇' : '🔊';
+        });
+
+        // Player Character Object
+        const player = {
+            x: 100,
+            y: 300,
+            width: 44,
+            height: 44,
+            vx: 0,
+            vy: 0,
+            speed: 6.5,
+            jumpPower: -14.5,
+            gravity: 0.65,
+            grounded: false,
+            color: '#f59e0b',
+            eyeOffset: 0,
+
+            reset() {
+                this.x = 100;
+                this.y = 300;
+                this.vx = 0;
+                this.vy = 0;
+                this.grounded = false;
+            },
+
+            jump() {
+                if (this.grounded) {
+                    this.vy = this.jumpPower;
+                    this.grounded = false;
+                    sound.playJump();
+                }
+            },
+
+            update() {
+                // Movement
+                if (keys.left) {
+                    this.vx = -this.speed;
+                    this.eyeOffset = -4;
+                } else if (keys.right) {
+                    this.vx = this.speed;
+                    this.eyeOffset = 4;
+                } else {
+                    this.vx *= 0.75; // Friction
+                }
+
+                // Gravity
+                this.vy += this.gravity;
+
+                // Apply velocities
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Ground boundary check (Fallback pit)
+                if (this.y > 1000) {
+                    this.x = Math.max(100, this.x - 300);
+                    this.y = 200;
+                    this.vy = 0;
+                }
+            },
+
+            draw(ctx, camX) {
+                const px = this.x - camX;
+                const py = this.y;
+
+                ctx.save();
+
+                // Hero Colorful Glowing Body (Gradient Blob / Hero Note Friend)
+                const grad = ctx.createLinearGradient(px, py, px + this.width, py + this.height);
+                grad.addColorStop(0, '#ec4899'); // Pink
+                grad.addColorStop(0.5, '#8b5cf6'); // Purple
+                grad.addColorStop(1, '#06b6d4'); // Cyan
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.roundRect(px, py, this.width, this.height, 16);
+                ctx.fill();
+
+                // Cute Gold Border
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Cute Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(px + 14 + this.eyeOffset, py + 16, 7, 0, Math.PI * 2);
+                ctx.arc(px + 30 + this.eyeOffset, py + 16, 7, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#1e1b4b';
+                ctx.beginPath();
+                ctx.arc(px + 15 + this.eyeOffset, py + 16, 3.5, 0, Math.PI * 2);
+                ctx.arc(px + 31 + this.eyeOffset, py + 16, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Happy Smile
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(px + 22 + this.eyeOffset, py + 26, 8, 0.1 * Math.PI, 0.9 * Math.PI, false);
+                ctx.stroke();
+
+                // Top Musical Note Antenna
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(px + 22, py);
+                ctx.lineTo(px + 22, py - 12);
+                ctx.stroke();
+
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(px + 26, py - 12, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        };
+
+        // --- Level Design & Elements ---
+        let platforms = [];
+        let coins = [];
+        let gates = []; // 10 Question Gates/Chests
+        let finishLine = null;
+
+        function buildLevel() {
+            platforms = [];
+            coins = [];
+            gates = [];
+
+            // Base ground segments with floating gaps
+            let xCursor = 0;
+
+            // Helper platform builders
+            const addPlatform = (x, y, w, h, color = '#10b981', noteStyle = false) => {
+                platforms.push({ x, y, width: w, height: h, color, noteStyle });
+            };
+
+            const addCoin = (x, y) => {
+                coins.push({ x, y, radius: 12, collected: false, floatAngle: Math.random() * Math.PI });
+            };
+
+            const addGate = (x, y, questionIdx) => {
+                gates.push({
+                    x, y,
+                    width: 50,
+                    height: 60,
+                    questionIndex: questionIdx,
+                    cleared: false,
+                    pulse: 0
+                });
+            };
+
+            // Ground & Floating Platform Structure (Spread over a fun long platformer map)
+            // Segment 0: Starter area
+            addPlatform(0, 480, 800, 150, '#34d399');
+            addCoin(250, 420);
+            addCoin(350, 420);
+            addGate(650, 420, 0); // Question 1 Gate
+
+            // Segment 1
+            addPlatform(900, 480, 700, 150, '#34d399');
+            addPlatform(1000, 360, 160, 25, '#fbbf24', true);
+            addCoin(1050, 310);
+            addCoin(1100, 310);
+            addGate(1450, 420, 1); // Question 2
+
+            // Segment 2
+            addPlatform(1700, 450, 600, 180, '#34d399');
+            addPlatform(1850, 320, 150, 25, '#f472b6', true);
+            addCoin(1900, 270);
+            addGate(2150, 390, 2); // Question 3
+
+            // Segment 3
+            addPlatform(2400, 480, 800, 150, '#34d399');
+            addPlatform(2500, 350, 140, 25, '#38bdf8', true);
+            addCoin(2550, 300);
+            addPlatform(2700, 260, 140, 25, '#a78bfa', true);
+            addCoin(2750, 210);
+            addGate(3050, 420, 3); // Question 4
+
+            // Segment 4
+            addPlatform(3300, 480, 750, 150, '#34d399');
+            addCoin(3450, 420);
+            addCoin(3550, 420);
+            addGate(3900, 420, 4); // Question 5
+
+            // Segment 5
+            addPlatform(4150, 450, 800, 180, '#34d399');
+            addPlatform(4300, 320, 180, 25, '#fbbf24', true);
+            addCoin(4380, 270);
+            addGate(4800, 390, 5); // Question 6
+
+            // Segment 6
+            addPlatform(5050, 480, 700, 150, '#34d399');
+            addPlatform(5200, 350, 150, 25, '#f472b6', true);
+            addCoin(5260, 300);
+            addGate(5600, 420, 6); // Question 7
+
+            // Segment 7
+            addPlatform(5850, 450, 800, 180, '#34d399');
+            addPlatform(6000, 320, 150, 25, '#38bdf8', true);
+            addCoin(6060, 270);
+            addGate(6500, 390, 7); // Question 8
+
+            // Segment 8
+            addPlatform(6750, 480, 750, 150, '#34d399');
+            addPlatform(6900, 350, 160, 25, '#a78bfa', true);
+            addCoin(6980, 300);
+            addGate(7350, 420, 8); // Question 9
+
+            // Segment 9: Final Stretch
+            addPlatform(7600, 480, 900, 150, '#34d399');
+            addPlatform(7750, 350, 150, 25, '#f472b6', true);
+            addCoin(7810, 300);
+            addGate(8150, 420, 9); // Question 10 Gate
+
+            // Exit Castle / Trophy Goal
+            finishLine = {
+                x: 8350,
+                y: 330,
+                width: 90,
+                height: 150
+            };
+        }
+
+        // --- Collision Logic ---
+        function checkPlatformCollisions() {
+            player.grounded = false;
+
+            platforms.forEach(p => {
+                // AABB Collision test
+                if (player.x < p.x + p.width &&
+                    player.x + player.width > p.x &&
+                    player.y < p.y + p.height &&
+                    player.y + player.height > p.y) {
+
+                    // Check top landing collision
+                    const prevY = player.y - player.vy;
+                    if (prevY + player.height <= p.y + 12) {
+                        player.y = p.y - player.height;
+                        player.vy = 0;
+                        player.grounded = true;
+                    }
+                }
+            });
+        }
+
+        function checkCoinCollisions() {
+            coins.forEach(c => {
+                if (!c.collected) {
+                    const dx = (player.x + player.width / 2) - c.x;
+                    const dy = (player.y + player.height / 2) - c.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < c.radius + player.width / 2) {
+                        c.collected = true;
+                        scoreCoins += 10;
+                        document.getElementById('coinCount').innerText = scoreCoins;
+                        sound.playCoin();
+                    }
+                }
+            });
+        }
+
+        function checkGateCollisions() {
+            gates.forEach(g => {
+                if (!g.cleared) {
+                    if (player.x < g.x + g.width &&
+                        player.x + player.width > g.x &&
+                        player.y < g.y + g.height &&
+                        player.y + player.height > g.y) {
+                        
+                        // Freeze game & open quiz modal
+                        triggerQuiz(g.questionIndex);
+                    }
+                }
+            });
+        }
+
+        function checkFinishLine() {
+            if (finishLine && gameState === 'PLAYING') {
+                if (player.x < finishLine.x + finishLine.width &&
+                    player.x + player.width > finishLine.x &&
+                    player.y < finishLine.y + finishLine.height &&
+                    player.y + player.height > finishLine.y) {
+                    
+                    // Verify if all questions cleared
+                    const allCleared = gates.every(g => g.cleared);
+                    if (allCleared) {
+                        completeGame();
+                    }
+                }
+            }
+        }
+
+        // --- Quiz System Logic ---
+        let currentGateIndex = -1;
+
+        function triggerQuiz(qIndex) {
+            gameState = 'QUIZ';
+            currentGateIndex = qIndex;
+            const qData = QUESTIONS[qIndex];
+
+            document.getElementById('quizIndex').innerText = `问题 ${qIndex + 1} / 10`;
+            document.getElementById('quizQuestion').innerText = qData.question;
+            document.getElementById('quizGraphic').innerHTML = getNoteSVG(qData.noteType);
+
+            const optionsContainer = document.getElementById('quizOptions');
+            optionsContainer.innerHTML = '';
+
+            const feedbackEl = document.getElementById('quizFeedback');
+            feedbackEl.classList.add('hidden');
+
+            qData.options.forEach((optText, optIdx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-950 font-bold border-2 border-indigo-200 transition active:scale-98 flex items-center gap-3 text-sm sm:text-base";
+                btn.innerHTML = `<span class="w-7 h-7 flex items-center justify-center bg-indigo-200 text-indigo-800 rounded-full text-xs font-extrabold">${String.fromCharCode(65 + optIdx)}</span> ${optText}`;
+                
+                btn.onclick = () => submitAnswer(optIdx, qData.correct, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quizModal').classList.remove('hidden');
+        }
+
+        function submitAnswer(chosenIdx, correctIdx, btn) {
+            const feedbackEl = document.getElementById('quizFeedback');
+            const allOptionBtns = document.getElementById('quizOptions').children;
+
+            // Disable all option buttons
+            for (let b of allOptionBtns) b.disabled = true;
+
+            if (chosenIdx === correctIdx) {
+                // Correct!
+                btn.classList.remove('bg-indigo-50', 'border-indigo-200');
+                btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
+                
+                feedbackEl.className = "text-center font-bold text-sm sm:text-base p-3 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300";
+                feedbackEl.innerHTML = "🎉 太棒了！回答正确！获得 +50 分！";
+                feedbackEl.classList.remove('hidden');
+
+                sound.playCorrect();
+                correctAnswers++;
+                scoreCoins += 50;
+                document.getElementById('coinCount').innerText = scoreCoins;
+
+                // Clear current gate
+                if (currentGateIndex >= 0) {
+                    gates[currentGateIndex].cleared = true;
+                }
+                updateQuestionHUD();
+
+                setTimeout(() => {
+                    document.getElementById('quizModal').classList.add('hidden');
+                    gameState = 'PLAYING';
+                    // Slight boost to push player past gate
+                    player.x += 60;
+                }, 1300);
+
+            } else {
+                // Wrong answer - Retry option
+                btn.classList.remove('bg-indigo-50', 'border-indigo-200');
+                btn.classList.add('bg-rose-500', 'text-white', 'border-rose-600');
+
+                feedbackEl.className = "text-center font-bold text-sm sm:text-base p-3 rounded-xl bg-rose-100 text-rose-800 border border-rose-300";
+                feedbackEl.innerHTML = `💡 差一点点！提示：${QUESTIONS[currentGateIndex].hint}`;
+                feedbackEl.classList.remove('hidden');
+
+                sound.playWrong();
+
+                setTimeout(() => {
+                    // Re-enable options for retry
+                    for (let b of allOptionBtns) {
+                        b.disabled = false;
+                        if (b === btn) {
+                            b.classList.add('opacity-40');
+                        }
+                    }
+                }, 1400);
+            }
+        }
+
+        function updateQuestionHUD() {
+            const clearedCount = gates.filter(g => g.cleared).length;
+            document.getElementById('questionCount').innerText = `${clearedCount}/10`;
+        }
+
+        // --- Render Loop & Animation ---
+        function drawBackground(camX) {
+            // Sky gradient is rendered on canvas base
+            ctx.clearRect(0, 0, viewWidth, viewHeight);
+
+            // Floating Background Clouds & Musical Notes
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            for (let i = 0; i < 15; i++) {
+                const cloudX = ((i * 600) - camX * 0.3) % (8500);
+                const cloudY = 60 + (i % 4) * 40;
+                ctx.beginPath();
+                ctx.arc(cloudX, cloudY, 30, 0, Math.PI * 2);
+                ctx.arc(cloudX + 25, cloudY - 10, 35, 0, Math.PI * 2);
+                ctx.arc(cloudX + 50, cloudY, 30, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Musical Symbols floating in sky
+                ctx.font = '24px sans-serif';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fillText(['♩', '♪', '♫', '♬', '𝅗𝅥'][i % 5], cloudX + 10, cloudY + 50);
+            }
+        }
+
+        function drawPlatforms(camX) {
+            platforms.forEach(p => {
+                const px = p.x - camX;
+                if (px + p.width > -50 && px < viewWidth + 50) {
+                    ctx.save();
+                    
+                    if (p.noteStyle) {
+                        // Rainbow floating platform
+                        const grad = ctx.createLinearGradient(px, p.y, px + p.width, p.y);
+                        grad.addColorStop(0, '#f43f5e');
+                        grad.addColorStop(0.5, '#eab308');
+                        grad.addColorStop(1, '#06b6d4');
+                        ctx.fillStyle = grad;
+                    } else {
+                        // Lush green platform with grass layer
+                        ctx.fillStyle = p.color;
+                    }
+
+                    ctx.beginPath();
+                    ctx.roundRect(px, p.y, p.width, p.height, 12);
+                    ctx.fill();
+
+                    // Grass top trim
+                    if (!p.noteStyle) {
+                        ctx.fillStyle = '#4ade80';
+                        ctx.beginPath();
+                        ctx.roundRect(px, p.y, p.width, 14, [12, 12, 0, 0]);
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+            });
+        }
+
+        function drawCoins(camX) {
+            coins.forEach(c => {
+                if (!c.collected) {
+                    const cx = c.x - camX;
+                    if (cx > -30 && cx < viewWidth + 30) {
+                        c.floatAngle += 0.05;
+                        const floatY = c.y + Math.sin(c.floatAngle) * 5;
+
+                        ctx.save();
+                        // Gold Coin Body
+                        ctx.fillStyle = '#facc15';
+                        ctx.strokeStyle = '#b45309';
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.arc(cx, floatY, c.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Inner Coin Music Note Symbol
+                        ctx.fillStyle = '#78350f';
+                        ctx.font = 'bold 12px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('♪', cx, floatY);
+                        ctx.restore();
+                    }
+                }
+            });
+        }
+
+        function drawGates(camX) {
+            gates.forEach((g, idx) => {
+                const gx = g.x - camX;
+                if (gx > -80 && gx < viewWidth + 80) {
+                    ctx.save();
+                    g.pulse += 0.05;
+
+                    // Question Gate/Chest Body
+                    if (g.cleared) {
+                        // Cleared Green Gate
+                        ctx.fillStyle = '#10b981';
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.roundRect(gx, g.y, g.width, g.height, 14);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 22px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('✅', gx + g.width / 2, g.y + g.height / 2 + 7);
+                    } else {
+                        // Glowing Interactive Purple Door
+                        const glow = Math.sin(g.pulse) * 4;
+                        ctx.fillStyle = '#6366f1';
+                        ctx.strokeStyle = '#fde047';
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.roundRect(gx - glow/2, g.y - glow/2, g.width + glow, g.height + glow, 14);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Question Mark Icon
+                        ctx.fillStyle = '#fde047';
+                        ctx.font = 'extrabold 24px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`Q${idx + 1}`, gx + g.width / 2, g.y + g.height / 2 + 8);
+                    }
+
+                    ctx.restore();
+                }
+            });
+        }
+
+        function drawFinishLine(camX) {
+            if (!finishLine) return;
+            const fx = finishLine.x - camX;
+            if (fx > -150 && fx < viewWidth + 150) {
+                ctx.save();
+
+                // Castle / Exit Gate Frame
+                ctx.fillStyle = '#475569';
+                ctx.beginPath();
+                ctx.roundRect(fx, finishLine.y, finishLine.width, finishLine.height, [20, 20, 0, 0]);
+                ctx.fill();
+
+                // Golden Door Opening
+                const allCleared = gates.every(g => g.cleared);
+                ctx.fillStyle = allCleared ? '#f59e0b' : '#1e293b';
+                ctx.beginPath();
+                ctx.roundRect(fx + 20, finishLine.y + 40, 50, 110, [25, 25, 0, 0]);
+                ctx.fill();
+
+                // Top Trophy Symbol
+                ctx.font = '40px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('🏆', fx + finishLine.width / 2, finishLine.y - 10);
+
+                if (!allCleared) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText('完成10题解锁', fx + finishLine.width / 2, finishLine.y + 25);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // --- Main Game Update & Render Loop ---
+        function gameLoop() {
+            if (gameState === 'PLAYING') {
+                player.update();
+                checkPlatformCollisions();
+                checkCoinCollisions();
+                checkGateCollisions();
+                checkFinishLine();
+
+                // Smooth Camera Tracking (Keep player centered)
+                cameraX = Math.max(0, player.x - viewWidth * 0.35);
+            }
+
+            // Draw World
+            drawBackground(cameraX);
+            drawPlatforms(cameraX);
+            drawCoins(cameraX);
+            drawGates(cameraX);
+            drawFinishLine(cameraX);
+
+            if (gameState === 'PLAYING' || gameState === 'QUIZ') {
+                player.draw(ctx, cameraX);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Timer Engine ---
+        function startTimer() {
+            startTime = Date.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (gameState === 'PLAYING' || gameState === 'QUIZ') {
+                    elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                    const mins = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+                    const secs = String(elapsedTime % 60).padStart(2, '0');
+                    document.getElementById('timerDisplay').innerText = `${mins}:${secs}`;
+                }
+            }, 1000);
+        }
+
+        // --- Game Completion & WhatsApp Share ---
+        function completeGame() {
+            gameState = 'VICTORY';
+            clearInterval(timerInterval);
+            sound.playVictory();
+
+            // Calculate Stars
+            let stars = '⭐⭐⭐';
+            if (correctAnswers < 7) stars = '⭐';
+            else if (correctAnswers < 10) stars = '⭐⭐';
+
+            document.getElementById('starContainer').innerText = stars;
+            document.getElementById('finalScore').innerText = `${correctAnswers} / 10 题`;
+            document.getElementById('finalCoins').innerText = `${scoreCoins} 金币`;
+
+            const mins = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+            const secs = String(elapsedTime % 60).padStart(2, '0');
+            document.getElementById('finalTime').innerText = `${mins}:${secs}`;
+
+            document.getElementById('victoryModal').classList.remove('hidden');
+        }
+
+        // WhatsApp Teacher Share Handler
+        document.getElementById('whatsappBtn').onclick = () => {
+            const studentName = document.getElementById('studentNameInput').value.trim() || '三年级学生';
+            const mins = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+            const secs = String(elapsedTime % 60).padStart(2, '0');
+
+            const message = `🎵 *三年级音乐：音符与音值大冒险成绩单* 🎵\n` +
+                            `------------------------------------\n` +
+                            `👤 学生姓名: ${studentName}\n` +
+                            `🎯 答对题数: ${correctAnswers} / 10 题\n` +
+                            `🪙 收集金币: ${scoreCoins} 分\n` +
+                            `⏱️ 通关用时: ${mins}分${secs}秒\n` +
+                            `🌟 获得评价: ${document.getElementById('starContainer').innerText}\n` +
+                            `------------------------------------\n` +
+                            `老师，我已成功掌握全音符、二分音符与四分音符！`;
+
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(waUrl, '_blank');
+        };
+
+        // --- Start & Restart Handlers ---
+        function startGame() {
+            sound.init();
+            scoreCoins = 0;
+            correctAnswers = 0;
+            document.getElementById('coinCount').innerText = '0';
+            updateQuestionHUD();
+            buildLevel();
+            player.reset();
+            gameState = 'PLAYING';
+            startTimer();
+
+            document.getElementById('startModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+        }
+
+        document.getElementById('startBtn').onclick = startGame;
+        document.getElementById('restartBtn').onclick = startGame;
+
+        // Initialize Animation Frame on load
+        window.onload = () => {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
